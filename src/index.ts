@@ -15,5 +15,9 @@ const BASE = process.env.BASE_URL || "/api";
 app.use(`${BASE}/auth`, authRouter);
 app.use(`${BASE}/subscription`, subscriptionRouter);
 
+app.get("/", (_, res) => {
+  return res.status(200).json("Server is up");
+});
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
