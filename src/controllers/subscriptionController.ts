@@ -5,7 +5,7 @@ import { sendMail } from "../utils/sendMail";
 
 export const create = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, productId, variantId, shop } = req.body;
+    const { email, variantId, shop } = req.body;
 
     if (!email || !shop || !variantId) {
       return res
@@ -27,6 +27,7 @@ export const create = async (req: Request, res: Response): Promise<any> => {
       where: {
         email,
         variant_id: String(variantId),
+        notified: false,
       },
     });
 
@@ -59,6 +60,7 @@ export const create = async (req: Request, res: Response): Promise<any> => {
     );
 
     if (data.errors) {
+      console.log(data.errors);
       return res.status(400).json({
         error: data.errors[0].message || "Error fetching inventory item id",
       });
@@ -83,10 +85,8 @@ export const create = async (req: Request, res: Response): Promise<any> => {
         "Subscription added successfully. You will be notified once the product is in stock",
     });
   } catch (error: any) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ error: error?.messgae || "Something went wrong" });
+    console.error("Error adding subscription:", error.message);
+    return res.status(500).json(error);
   }
 };
 
@@ -94,12 +94,17 @@ export const notify = async (req: Request, res: Response) => {
   try {
     const shopHeader = req.headers["x-shopify-shop-domain"];
     const shop = Array.isArray(shopHeader) ? shopHeader[0] : shopHeader;
-    const { inventory_item_id } = req.body;
+    const { inventory_item_id, available } = req.body;
 
     if (!shop || !inventory_item_id) {
       return res
         .status(400)
         .json({ error: "Shop domain and inventory item id are required" });
+    }
+
+    if (available <= 0) {
+      console.log("Not enough inventory for:", inventory_item_id, available);
+      return res.status(400).json({ error: "Not enough inventory" });
     }
 
     const subscriptions = await prisma.subscriptions.findMany({
@@ -109,6 +114,10 @@ export const notify = async (req: Request, res: Response) => {
         notified: false,
       },
     });
+
+    if (!subscriptions.length) {
+      return res.status(400).json({ error: "No active subscribers found" });
+    }
 
     const emails = [];
 
@@ -126,7 +135,7 @@ export const notify = async (req: Request, res: Response) => {
         },
       });
     }
-    await sendMail({ emails });
+    await sendMail({ emails, variant_id: subscriptions[0].variant_id });
     return res
       .status(200)
       .json({ message: "Users have been notified successfully" });

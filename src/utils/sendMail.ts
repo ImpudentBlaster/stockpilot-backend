@@ -1,6 +1,12 @@
 import nodemailer from "nodemailer";
 
-export const sendMail = async ({ emails }: { emails: string[] }) => {
+export const sendMail = async ({
+  emails,
+  variant_id,
+}: {
+  emails: string[];
+  variant_id: string;
+}) => {
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -17,7 +23,7 @@ export const sendMail = async ({ emails }: { emails: string[] }) => {
       subject: "Testing nodemailer",
       text: `Test`,
       html: `
-        <p>Testing nodemailer</p>
+        <p>Product with id: ${variant_id} is now in stock</p>
       `,
     });
 
