@@ -95,7 +95,7 @@ export const notify = async (req: Request, res: Response) => {
     const shopHeader = req.headers["x-shopify-shop-domain"];
     const shop = Array.isArray(shopHeader) ? shopHeader[0] : shopHeader;
     const { inventory_item_id, available } = req.body;
-
+    console.log(inventory_item_id, shopHeader, shop);
     if (!shop || !inventory_item_id) {
       console.log("No shop or inventory id provided");
       return res
@@ -115,7 +115,7 @@ export const notify = async (req: Request, res: Response) => {
         notified: false,
       },
     });
-
+    console.log(subscriptions);
     if (!subscriptions.length) {
       console.log("No active subscribers found");
       return res.status(400).json({ error: "No active subscribers found" });
