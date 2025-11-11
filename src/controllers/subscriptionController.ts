@@ -97,6 +97,7 @@ export const notify = async (req: Request, res: Response) => {
     const { inventory_item_id, available } = req.body;
 
     if (!shop || !inventory_item_id) {
+      console.log("No shop or inventory id provided");
       return res
         .status(400)
         .json({ error: "Shop domain and inventory item id are required" });
@@ -116,6 +117,7 @@ export const notify = async (req: Request, res: Response) => {
     });
 
     if (!subscriptions.length) {
+      console.log("No active subscribers found");
       return res.status(400).json({ error: "No active subscribers found" });
     }
 
