@@ -4,6 +4,7 @@ import cors from "cors";
 import { subscriptionRouter } from "./routes/subscriptionRouter";
 import { authRouter } from "./routes/authRouter";
 import morgan from "morgan";
+import { backInStockRouter } from "./routes/backInStockRoutes";
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use(
 const BASE = process.env.BASE_URL || "/api";
 
 app.use(`${BASE}/auth`, authRouter);
+app.use(`${BASE}/backInStock`, backInStockRouter);
 app.use(`${BASE}/subscription`, subscriptionRouter);
 
 app.get("/", (_, res) => {

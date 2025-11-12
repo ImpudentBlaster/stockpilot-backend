@@ -58,7 +58,6 @@ export const authorize = async (req: Request, res: Response) => {
       },
     });
 
-    console.log(JSON.stringify(data));
     return res
       .status(200)
       .json({ message: "Session stored successfully", data: req.body });

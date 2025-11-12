@@ -17,10 +17,13 @@ model Subscriptions {
   id                String    @id @default(uuid()) @db.Uuid
   shop              String
   email             String
+  product_id        String
   variant_id        String
   inventory_item_id String
   notified          Boolean   @default(false)
   notified_at       DateTime? @db.Timestamptz(6)
+  quantity          Int
+  title             String
   createdAt         DateTime  @default(now()) @db.Timestamptz(6)
 }
 

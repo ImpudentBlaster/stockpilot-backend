@@ -5,12 +5,14 @@ import { sendMail } from "../utils/sendMail";
 
 export const create = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, variantId, shop } = req.body;
+    const { email, variantId, shop, quantity, productId } = req.body;
 
-    if (!email || !shop || !variantId) {
-      return res
-        .status(400)
-        .json({ error: "email, shop and variantId are required" });
+    if (!email || !shop || !variantId || !quantity || !productId) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
+
+    if (quantity < 1) {
+      return res.status(400).json({ error: "Quantity can't be less than 1" });
     }
 
     const shopData = await prisma.stores.findUnique({
@@ -42,7 +44,7 @@ export const create = async (req: Request, res: Response): Promise<any> => {
     const query = `
     query getInventoryItemId($id: ID!) {
       productVariant(id: $id) {
-        id
+        title
         inventoryItem {
           id
         }
@@ -65,7 +67,10 @@ export const create = async (req: Request, res: Response): Promise<any> => {
         error: data.errors[0].message || "Error fetching inventory item id",
       });
     }
-    const inventory_item_id = data.data.productVariant.inventoryItem.id || null;
+    const { title, inventoryItem } = data.data?.productVariant;
+    const inventory_item_id = inventoryItem.id || null;
+
+    console.log(title, inventory_item_id);
 
     if (!inventory_item_id) {
       return res.status(400).json({ error: "Product not found in inventory" });
@@ -73,7 +78,10 @@ export const create = async (req: Request, res: Response): Promise<any> => {
 
     await prisma.subscriptions.create({
       data: {
+        product_id: String(productId),
+        title,
         shop,
+        quantity,
         variant_id: String(variantId),
         inventory_item_id: inventory_item_id.split("/").at(-1),
         email,
