@@ -1,6 +1,16 @@
 import { Router } from "express";
-import { fetch } from "../controllers/backInStockController";
+import {
+  create,
+  getActiveSubs,
+  getSentSubs,
+  getTotalSubs,
+  notify,
+} from "../controllers/backInStockController";
 
 export const backInStockRouter = Router();
 
-backInStockRouter.get("/", fetch);
+backInStockRouter.post("/", create);
+backInStockRouter.post("/notify", notify);
+backInStockRouter.get("/total", getTotalSubs);
+backInStockRouter.get("/active", getActiveSubs);
+backInStockRouter.get("/sent", getSentSubs);

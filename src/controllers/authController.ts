@@ -44,7 +44,7 @@ export const authorize = async (req: Request, res: Response) => {
   }
 }
     `;
-    const { data } = await shopifyInstance({
+    await shopifyInstance({
       shop_url: shop,
       access_token,
     }).post(`https://${shop}/admin/api/2025-10/graphql.json`, {
@@ -52,17 +52,19 @@ export const authorize = async (req: Request, res: Response) => {
       variables: {
         topic: "INVENTORY_LEVELS_UPDATE",
         webhookSubscription: {
-          callbackUrl: `${process.env.URL}/api/subscription/notify`,
+          callbackUrl: `${process.env.URL}/api/back-in-stock/notify`,
           format: "JSON",
         },
       },
     });
 
+    console.log("Webhook successfully created on:", shop);
+
     return res
       .status(200)
       .json({ message: "Session stored successfully", data: req.body });
   } catch (error: any) {
-    console.log("Error authenticating session: ", error.message);
+    console.error("Error authenticating session: ", error.message);
     return res
       .status(500)
       .json({ error: error?.message || "Something went wrong" });

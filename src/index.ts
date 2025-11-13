@@ -1,10 +1,10 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import { subscriptionRouter } from "./routes/subscriptionRouter";
-import { authRouter } from "./routes/authRouter";
 import morgan from "morgan";
+import { authRouter } from "./routes/authRoutes";
 import { backInStockRouter } from "./routes/backInStockRoutes";
+import { analyticsRouter } from "./routes/analyticsRoutes";
 
 dotenv.config();
 
@@ -18,8 +18,8 @@ app.use(
 const BASE = process.env.BASE_URL || "/api";
 
 app.use(`${BASE}/auth`, authRouter);
-app.use(`${BASE}/backInStock`, backInStockRouter);
-app.use(`${BASE}/subscription`, subscriptionRouter);
+app.use(`${BASE}/analytics`, analyticsRouter);
+app.use(`${BASE}/back-in-stock`, backInStockRouter);
 
 app.get("/", (_, res) => {
   return res.status(200).json("Server is up");
