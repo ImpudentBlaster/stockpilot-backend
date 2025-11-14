@@ -28,8 +28,20 @@ model Subscriptions {
 }
 
 model Stores {
-  id           String  @id @default(uuid()) @db.Uuid
-  shop         String  @unique
-  access_token String  @unique
-  installed    Boolean @default(true)
+  id           String   @id @default(uuid()) @db.Uuid
+  shop         String   @unique
+  access_token String   @unique
+  installed    Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model StoreSettings {
+  id                 String   @id @default(uuid()) @db.Uuid
+  shop               String   @unique
+  backInStockEnabled Boolean  @default(true)
+  waitlistEnabled    Boolean  @default(true)
+  preorderEnabled    Boolean  @default(true)
+  email              String   @default("")
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(6)
 }

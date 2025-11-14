@@ -7,6 +7,11 @@ export const sendMail = async ({
   emails: string[];
   variant_id: string;
 }) => {
+  console.log("EMAIL VALUES:", emails, variant_id);
+  console.log("EMAIL CREDS:", process.env.SMTP_HOST);
+  console.log("EMAIL CREDS:", process.env.SMTP_PORT);
+  console.log("EMAIL CREDS:", process.env.SMTP_USER);
+  console.log("EMAIL CREDS:", process.env.SMTP_PASS);
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,

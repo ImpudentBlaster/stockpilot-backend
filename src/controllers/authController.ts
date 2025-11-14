@@ -24,6 +24,14 @@ export const authorize = async (req: Request, res: Response) => {
       },
     });
 
+    await prisma.storeSettings.upsert({
+      where: { shop },
+      update: {},
+      create: {
+        shop,
+      },
+    });
+
     const query = `
     mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
   webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {

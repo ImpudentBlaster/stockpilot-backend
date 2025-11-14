@@ -5,6 +5,7 @@ import morgan from "morgan";
 import { authRouter } from "./routes/authRoutes";
 import { backInStockRouter } from "./routes/backInStockRoutes";
 import { analyticsRouter } from "./routes/analyticsRoutes";
+import { settingsRouter } from "./routes/settingsRoutes";
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ const BASE = process.env.BASE_URL || "/api";
 app.use(`${BASE}/auth`, authRouter);
 app.use(`${BASE}/analytics`, analyticsRouter);
 app.use(`${BASE}/back-in-stock`, backInStockRouter);
+app.use(`${BASE}/settings`, settingsRouter);
 
 app.get("/", (_, res) => {
   return res.status(200).json("Server is up");

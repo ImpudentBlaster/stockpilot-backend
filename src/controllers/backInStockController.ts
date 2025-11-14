@@ -119,12 +119,13 @@ export const notify = async (req: Request, res: Response) => {
         shop,
         inventory_item_id: String(inventory_item_id),
         notified: false,
+        quantity: { lte: available },
       },
     });
 
     if (!subscriptions.length) {
-      console.error("No active subscribers found");
-      return res.status(400).json({ error: "No active subscribers found" });
+      console.error("No valid subscribers found");
+      return res.status(400).json({ error: "No valid subscribers found" });
     }
 
     const emails = [];
