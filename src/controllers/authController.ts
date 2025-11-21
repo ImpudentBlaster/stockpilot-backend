@@ -5,7 +5,6 @@ import { shopifyInstance } from "../utils/axiosInstances";
 export const authorize = async (req: Request, res: Response) => {
   try {
     const { shop, accessToken: access_token } = req.body;
-
     if (!shop || !access_token) {
       return res
         .status(400)
@@ -17,6 +16,7 @@ export const authorize = async (req: Request, res: Response) => {
       },
       update: {
         installed: true,
+        access_token,
       },
       create: {
         shop,
