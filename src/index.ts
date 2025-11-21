@@ -15,6 +15,14 @@ app.use(express.json());
 app.use(
   morgan(":method :url :status :res[content-length] - :response-time ms")
 );
+app.use((req, res, next) => {
+  console.log("PAYLOAD RECEIVED:", req.body);
+  console.log("/////////////////////////////////////////");
+  console.log("PAYLOAD RECEIVED ( stringified ):", JSON.stringify(req.body));
+  console.log("/////////////////////////////////////////");
+  console.log("QUERY RECEIVED:", req.query);
+  next();
+});
 
 const BASE = process.env.BASE_URL || "/api";
 
