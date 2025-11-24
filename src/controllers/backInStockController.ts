@@ -172,7 +172,7 @@ export const getTotalSubs = async (req: Request, res: Response) => {
       prisma.subscriptions.findMany({
         where: {
           shop,
-          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+          // OR: [{ product_id: { contains: q, mode: "insensitive" } }],
         },
         skip: offset,
         take: limit,
@@ -183,7 +183,7 @@ export const getTotalSubs = async (req: Request, res: Response) => {
       prisma.subscriptions.count({
         where: {
           shop,
-          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+          // OR: [{ product_id: { contains: q, mode: "insensitive" } }],
         },
       }),
     ]);
@@ -217,7 +217,7 @@ export const getActiveSubs = async (req: Request, res: Response) => {
         where: {
           shop,
           notified: false,
-          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+          // OR: [{ product_id: { contains: q, mode: "insensitive" } }],
         },
         skip: offset,
         take: limit,
@@ -229,7 +229,7 @@ export const getActiveSubs = async (req: Request, res: Response) => {
         where: {
           shop,
           notified: false,
-          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+          // OR: [{ product_id: { contains: q, mode: "insensitive" } }],
         },
       }),
     ]);
@@ -263,7 +263,7 @@ export const getSentSubs = async (req: Request, res: Response) => {
         where: {
           shop,
           notified: true,
-          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+          // OR: [{ product_id: { contains: q, mode: "insensitive" } }],
         },
         skip: offset,
         take: limit,
@@ -275,7 +275,7 @@ export const getSentSubs = async (req: Request, res: Response) => {
         where: {
           shop,
           notified: true,
-          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+          // OR: [{ product_id: { contains: q, mode: "insensitive" } }],
         },
       }),
     ]);
