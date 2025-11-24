@@ -33,6 +33,7 @@ model Stores {
   access_token String   @unique
   installed    Boolean  @default(true)
   createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
 }
 
 model StoreSettings {

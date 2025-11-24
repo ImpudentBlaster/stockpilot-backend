@@ -159,6 +159,7 @@ export const notify = async (req: Request, res: Response) => {
 export const getTotalSubs = async (req: Request, res: Response) => {
   try {
     const shop = typeof req.query.shop !== "string" ? null : req.query.shop;
+    const q = typeof req.query.q === "string" ? req.query.q : undefined;
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -169,7 +170,10 @@ export const getTotalSubs = async (req: Request, res: Response) => {
 
     const [data, total] = await Promise.all([
       prisma.subscriptions.findMany({
-        where: { shop },
+        where: {
+          shop,
+          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+        },
         skip: offset,
         take: limit,
         orderBy: {
@@ -177,7 +181,10 @@ export const getTotalSubs = async (req: Request, res: Response) => {
         },
       }),
       prisma.subscriptions.count({
-        where: { shop },
+        where: {
+          shop,
+          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+        },
       }),
     ]);
 
@@ -196,6 +203,7 @@ export const getTotalSubs = async (req: Request, res: Response) => {
 export const getActiveSubs = async (req: Request, res: Response) => {
   try {
     const shop = typeof req.query.shop !== "string" ? null : req.query.shop;
+    const q = typeof req.query.q === "string" ? req.query.q : undefined;
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -206,7 +214,11 @@ export const getActiveSubs = async (req: Request, res: Response) => {
 
     const [data, total] = await Promise.all([
       prisma.subscriptions.findMany({
-        where: { shop, notified: false },
+        where: {
+          shop,
+          notified: false,
+          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+        },
         skip: offset,
         take: limit,
         orderBy: {
@@ -214,7 +226,11 @@ export const getActiveSubs = async (req: Request, res: Response) => {
         },
       }),
       prisma.subscriptions.count({
-        where: { shop, notified: false },
+        where: {
+          shop,
+          notified: false,
+          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+        },
       }),
     ]);
 
@@ -233,6 +249,7 @@ export const getActiveSubs = async (req: Request, res: Response) => {
 export const getSentSubs = async (req: Request, res: Response) => {
   try {
     const shop = typeof req.query.shop !== "string" ? null : req.query.shop;
+    const q = typeof req.query.q === "string" ? req.query.q : undefined;
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -243,7 +260,11 @@ export const getSentSubs = async (req: Request, res: Response) => {
 
     const [data, total] = await Promise.all([
       prisma.subscriptions.findMany({
-        where: { shop, notified: true },
+        where: {
+          shop,
+          notified: true,
+          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+        },
         skip: offset,
         take: limit,
         orderBy: {
@@ -251,7 +272,11 @@ export const getSentSubs = async (req: Request, res: Response) => {
         },
       }),
       prisma.subscriptions.count({
-        where: { shop, notified: true },
+        where: {
+          shop,
+          notified: true,
+          OR: [{ product_id: { contains: q, mode: "insensitive" } }],
+        },
       }),
     ]);
 
@@ -260,6 +285,43 @@ export const getSentSubs = async (req: Request, res: Response) => {
       total,
     });
   } catch (error: any) {
+    return res
+      .status(500)
+      .json({ error: error?.message || "Something went wrong" });
+  }
+};
+
+export const mostRequestedProducts = async (req: Request, res: Response) => {
+  try {
+    const { shop } = req.query;
+
+    if (!shop || typeof shop !== "string") {
+      return res.status(400).json({ error: "Shop domain is required" });
+    }
+
+    const products = await prisma.subscriptions.groupBy({
+      by: ["product_id"],
+      where: {
+        shop,
+      },
+      _count: {
+        product_id: true,
+      },
+      orderBy: {
+        _count: {
+          product_id: "desc",
+        },
+      },
+      take: 10,
+    });
+
+    const data = products.map(({ _count, product_id }) => ({
+      product_id,
+      count: _count.product_id,
+    }));
+    return res.status(200).json({ data });
+  } catch (error: any) {
+    console.error("Error fetching product data:", error?.message);
     return res
       .status(500)
       .json({ error: error?.message || "Something went wrong" });

@@ -36,3 +36,35 @@ export const fetch = async (req: Request, res: Response) => {
       .json({ error: error?.message || "Something went wrong" });
   }
 };
+
+export const mostRequestedProducts = async (req: Request, res: Response) => {
+  try {
+    const { shop } = req.body;
+
+    if (!shop) {
+      return res.status(400).json({ error: "Shop domain is required" });
+    }
+
+    const data = await prisma.subscriptions.groupBy({
+      by: ["product_id"],
+      where: {
+        shop,
+      },
+      _count: {
+        product_id: true,
+      },
+      orderBy: {
+        _count: {
+          product_id: "desc",
+        },
+      },
+      take: 10,
+    });
+    return res.status(200).json({ data });
+  } catch (error: any) {
+    console.error("Error fetching product data:", error?.message);
+    return res
+      .status(500)
+      .json({ error: error?.message || "Something went wrong" });
+  }
+};

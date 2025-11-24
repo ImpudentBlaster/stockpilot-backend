@@ -10,6 +10,16 @@ export const authorize = async (req: Request, res: Response) => {
         .status(400)
         .json({ error: "access_token and shop url are required" });
     }
+
+    const existingStore = await prisma.stores.findUnique({
+      where: { shop, installed: true },
+    });
+
+    if (existingStore && existingStore.access_token === access_token) {
+      console.log(`${shop} already authorized`);
+      return res.status(200).json({ message: "App already authorized" });
+    }
+
     await prisma.stores.upsert({
       where: {
         shop,
@@ -73,6 +83,32 @@ export const authorize = async (req: Request, res: Response) => {
       .json({ message: "Session stored successfully", data: req.body });
   } catch (error: any) {
     console.error("Error authenticating session: ", error.message);
+    return res
+      .status(500)
+      .json({ error: error?.message || "Something went wrong" });
+  }
+};
+
+export const handleUninstall = async (req: Request, res: Response) => {
+  try {
+    const { shop } = req.body;
+
+    if (!shop) {
+      return res.status(400).json({ error: "Shop domain is required" });
+    }
+
+    await prisma.stores.update({
+      where: {
+        shop,
+      },
+      data: {
+        installed: false,
+      },
+    });
+
+    return res.status(200).json({ message: "App uninstall successful" });
+  } catch (error: any) {
+    console.error("Error handling the app uninstall:", error.message);
     return res
       .status(500)
       .json({ error: error?.message || "Something went wrong" });
