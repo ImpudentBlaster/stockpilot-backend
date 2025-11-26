@@ -122,18 +122,18 @@ export const handleUninstall = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const store = req.header("x-shop-domain");
-    console.log("login store", store);
+    const shop = req.header("x-shop-domain");
+    console.log("login store", shop);
 
-    const internalApiKey = req.header("x-auth-key");
+    const apiKey = req.header("x-auth-key");
 
-    if (!store || !internalApiKey) {
+    if (!shop || !apiKey) {
       return res.status(400).json({ message: "Missing required headers" });
     }
 
     const payload = {
-      shop: store,
-      internalApiKey: internalApiKey,
+      shop,
+      apiKey,
     };
 
     const expiresIn = 15 * 60;
