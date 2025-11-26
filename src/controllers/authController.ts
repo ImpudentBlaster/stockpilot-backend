@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import prisma from "../config/prisma";
 import { shopifyInstance } from "../utils/axiosInstances";
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
 
 export const authorize = async (req: Request, res: Response) => {
   try {
@@ -20,6 +22,8 @@ export const authorize = async (req: Request, res: Response) => {
       return res.status(200).json({ message: "App already authorized" });
     }
 
+    const apiKey = crypto.randomBytes(32).toString("hex");
+
     await prisma.stores.upsert({
       where: {
         shop,
@@ -31,6 +35,7 @@ export const authorize = async (req: Request, res: Response) => {
       create: {
         shop,
         access_token,
+        apiKey,
       },
     });
 
@@ -109,6 +114,44 @@ export const handleUninstall = async (req: Request, res: Response) => {
     return res.status(200).json({ message: "App uninstall successful" });
   } catch (error: any) {
     console.error("Error handling the app uninstall:", error.message);
+    return res
+      .status(500)
+      .json({ error: error?.message || "Something went wrong" });
+  }
+};
+
+export const login = async (req: Request, res: Response) => {
+  try {
+    const store = req.header("x-shop-domain");
+    console.log("login store", store);
+
+    const internalApiKey = req.header("x-auth-key");
+
+    if (!store || !internalApiKey) {
+      return res.status(400).json({ message: "Missing required headers" });
+    }
+
+    const payload = {
+      shop: store,
+      internalApiKey: internalApiKey,
+    };
+
+    const expiresIn = 15 * 60;
+    const expiresAt = Date.now() + expiresIn * 1000;
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET!, {
+      expiresIn: expiresIn,
+    });
+
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      expiresIn: "15m",
+      expiresAt,
+      expiresAtReadable: new Date(expiresAt).toISOString(),
+    });
+  } catch (error: any) {
+    console.error("Error authorising login:", error?.message);
     return res
       .status(500)
       .json({ error: error?.message || "Something went wrong" });

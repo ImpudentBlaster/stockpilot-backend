@@ -31,6 +31,7 @@ model Stores {
   id           String   @id @default(uuid()) @db.Uuid
   shop         String   @unique
   access_token String   @unique
+  apiKey       String
   installed    Boolean  @default(true)
   createdAt    DateTime @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime @updatedAt @db.Timestamptz(6)
