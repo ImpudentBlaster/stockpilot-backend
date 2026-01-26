@@ -300,25 +300,26 @@ export const mostRequestedProducts = async (req: Request, res: Response) => {
     }
 
     const products = await prisma.subscriptions.groupBy({
-      by: ["product_id"],
-      where: {
-        shop,
-      },
+      by: ["product_id", "variant_id", "title"],
+      where: { shop },
       _count: {
-        product_id: true,
+        variant_id: true,
       },
       orderBy: {
         _count: {
-          product_id: "desc",
+          variant_id: "desc",
         },
       },
       take: 10,
     });
 
-    const data = products.map(({ _count, product_id }) => ({
+    const data = products.map(({ product_id, variant_id, title, _count }) => ({
       product_id,
-      count: _count.product_id,
+      variant_id,
+      title,
+      count: _count.variant_id,
     }));
+
     return res.status(200).json({ data });
   } catch (error: any) {
     console.error("Error fetching product data:", error?.message);

@@ -5,12 +5,14 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider     = "postgresql"
+  relationMode = "prisma"
+  url          = env("DATABASE_URL")
 }
 
 model Subscriptions {
@@ -27,6 +29,64 @@ model Subscriptions {
   createdAt         DateTime  @default(now()) @db.Timestamptz(6)
 }
 
+model OfferGroup {
+  id            String      @id @default(uuid())
+  name          String
+  merchant_code String
+  options       Json
+  plans         OfferPlan[]
+
+  // 🔹 ADDED (virtual relation)
+  productLinks PreOrderProductOffer[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model OfferPlan {
+  id               String     @id @default(uuid())
+  groupId          String
+  group            OfferGroup @relation(fields: [groupId], references: [id])
+  name             String
+  description      String
+  billing_policy   Json
+  delivery_policy  Json
+  inventory_policy Json
+  pricing_policies Json
+  createdAt        DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime   @updatedAt @db.Timestamptz(6)
+}
+
+model PreOrderProducts {
+  id         String @id @default(uuid()) @db.Uuid
+  shop       String
+  variant_id String @unique
+
+  // ⚠️ kept as-is (legacy / backward compatibility)
+  offer_group_id String
+
+  continue_seling Boolean @default(true)
+
+  // 🔹 ADDED (virtual relation)
+  offerLinks PreOrderProductOffer[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model PreOrderProductOffer {
+  id           String @id @default(uuid())
+  productId    String
+  offerGroupId String
+
+  product    PreOrderProducts @relation(fields: [productId], references: [id])
+  offerGroup OfferGroup       @relation(fields: [offerGroupId], references: [id])
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([productId, offerGroupId])
+}
+
 model Stores {
   id           String   @id @default(uuid()) @db.Uuid
   shop         String   @unique
@@ -40,9 +100,9 @@ model Stores {
 model StoreSettings {
   id                 String   @id @default(uuid()) @db.Uuid
   shop               String   @unique
-  backInStockEnabled Boolean  @default(true)
-  waitlistEnabled    Boolean  @default(true)
-  preorderEnabled    Boolean  @default(true)
+  backInStockEnabled Boolean  @default(false)
+  waitlistEnabled    Boolean  @default(false)
+  preorderEnabled    Boolean  @default(false)
   email              String   @default("")
   createdAt          DateTime @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime @updatedAt @db.Timestamptz(6)
