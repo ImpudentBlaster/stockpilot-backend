@@ -6,24 +6,20 @@ const amountSchema = z
     value: z.number(),
   })
   .superRefine((data, ctx) => {
-    if (data.type === "PERCENTAGE") {
-      if (data.value < 0 || data.value > 100) {
-        ctx.addIssue({
-          path: ["value"],
-          message: "Percentage value must be between 0 and 100",
-          code: "custom",
-        });
-      }
+    if (data.type === "PERCENTAGE" && (data.value < 0 || data.value > 100)) {
+      ctx.addIssue({
+        path: ["value"],
+        message: "Percentage value must be between 0 and 100",
+        code: "custom",
+      });
     }
 
-    if (data.type === "PRICE") {
-      if (data.value <= 0) {
-        ctx.addIssue({
-          path: ["value"],
-          message: "Price value must be greater than 0",
-          code: "custom",
-        });
-      }
+    if (data.type === "PRICE" && data.value <= 0) {
+      ctx.addIssue({
+        path: ["value"],
+        message: "Price value must be greater than 0",
+        code: "custom",
+      });
     }
   });
 
@@ -42,6 +38,7 @@ const partialBillingSchema = z.discriminatedUnion("chargeTrigger", [
     chargeTrigger: z.literal("TIME_AFTER_CHECKOUT"),
     daysAfterCheckout: z
       .number()
+      .int()
       .min(1)
       .transform((days) => `P${days}D`),
   }),
@@ -50,10 +47,7 @@ const partialBillingSchema = z.discriminatedUnion("chargeTrigger", [
     chargeTrigger: z.literal("EXACT_TIME"),
     chargeDate: z
       .string()
-      .regex(
-        /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/,
-        "Date must be in YYYY-MM-DD format",
-      )
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD")
       .transform((date) => `${date}T00:00:00Z`),
   }),
 ]);
@@ -63,22 +57,19 @@ export const billingPolicySchema = z.union([
   partialBillingSchema,
 ]);
 
-const exactTimeDeliverySchema = z.object({
-  fulfillmentTrigger: z.literal("EXACT_TIME"),
-  fulfillmentExactTime: z
-    .string()
-    .regex(
-      /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/,
-      "Date must be in YYYY-MM-DD format",
-    ),
-});
-
 const asapDeliverySchema = z.object({
   fulfillmentTrigger: z.literal("ASAP"),
 });
 
 const unknownDeliverySchema = z.object({
   fulfillmentTrigger: z.literal("UNKNOWN"),
+});
+
+const exactTimeDeliverySchema = z.object({
+  fulfillmentTrigger: z.literal("EXACT_TIME"),
+  fulfillmentExactTime: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
 });
 
 export const deliveryPolicySchema = z.discriminatedUnion("fulfillmentTrigger", [
@@ -99,6 +90,7 @@ const resourcesSchema = z
           ),
       )
       .default([]),
+
     variantIds: z
       .array(
         z
@@ -115,15 +107,15 @@ const resourcesSchema = z
       ctx.addIssue({
         code: "custom",
         message: "At least one productId or variantId must be provided",
-        path: ["productIds", "variantIds"],
+        path: ["productIds"],
       });
     }
   });
 
 export const offerSchema = z.object({
-  groupName: z.string().trim().min(1, "Group Name cannot be empty"),
-  planName: z.string().trim().min(1, "Plan name cannot be empty"),
-  planDescription: z.string().trim().min(1, "Plan description cannot be empty"),
+  groupName: z.string().trim().min(1),
+  planName: z.string().trim().min(1),
+  planDescription: z.string().trim().min(1),
   billingPolicy: billingPolicySchema,
   deliveryPolicy: deliveryPolicySchema,
   resources: resourcesSchema,

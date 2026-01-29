@@ -239,7 +239,7 @@ export const getPreorderProducts = async (req: Request, res: Response) => {
       prisma.preOrderProducts.findMany({
         where: {
           shop,
-          AND: [{ product_id: { contains: q, mode: "insensitive" } }],
+          AND: [{ variant_id: { contains: q, mode: "insensitive" } }],
         },
         skip: offset,
         take: limit,
@@ -265,21 +265,16 @@ export const getPreorderProducts = async (req: Request, res: Response) => {
 
 export const createOffer = async (req: Request, res: Response) => {
   try {
-    console.log("p:", JSON.stringify(req.body));
-    console.log("////////////////////////////////////////");
     const parsed = offerSchema.safeParse(req.body);
-
-    const shop_url = "bundleapp-tes.myshopify.com";
-    const access_token = "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";
-
+    console.log("====================================");
+    console.log("req.body", req.body);
+    console.log("====================================");
     if (!parsed.success) {
-      console.error("Invalid payload", JSON.stringify(parsed.error.issues));
-      return res.status(400).json({
-        error: parsed.error.issues,
-      });
+      return res.status(400).json({ error: parsed.error.issues });
     }
 
-    console.log(JSON.stringify(parsed.data));
+    const shop_url = "bundleapp-tes.myshopify.com";
+    const access_token = "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";
 
     const {
       groupName,
@@ -298,146 +293,75 @@ export const createOffer = async (req: Request, res: Response) => {
             billingPolicy.value,
         },
       },
-
       ...(billingPolicy.paymentMethod === "FULL"
-        ? {
-            remainingBalanceChargeTrigger: "NO_REMAINING_BALANCE",
-          }
-        : {
-            remainingBalanceChargeTrigger: billingPolicy.chargeTrigger,
-          }),
-
+        ? { remainingBalanceChargeTrigger: "NO_REMAINING_BALANCE" }
+        : { remainingBalanceChargeTrigger: billingPolicy.chargeTrigger }),
       ...(billingPolicy.paymentMethod === "PARTIAL" &&
         billingPolicy.chargeTrigger === "TIME_AFTER_CHECKOUT" && {
           remainingBalanceChargeTimeAfterCheckout:
             billingPolicy.daysAfterCheckout,
         }),
-
       ...(billingPolicy.paymentMethod === "PARTIAL" &&
         billingPolicy.chargeTrigger === "EXACT_TIME" && {
           remainingBalanceChargeExactTime: billingPolicy.chargeDate,
         }),
     };
 
-    const offer_query = `
-      mutation CreateSellingPlanGroup($input: SellingPlanGroupInput!) {
-        sellingPlanGroupCreate(input: $input) {
-          sellingPlanGroup {
-            id
-            name
-          }
-          userErrors {
-            field
-            message
+    const variantIds: string[] = [];
+    const enableInventoryPayload: any[] = [];
+
+    const VARIANTS_QUERY = `
+      query ProductVariants($productId: ID!) {
+        product(id: $productId) {
+          variants(first: 250) {
+            nodes { id }
           }
         }
       }
     `;
 
-    const variants_query = `
-   query ProductVariantsByProduct($productId: ID!) {
-  product(id: $productId) {
-    id
-    title
-    variants(first: 250) {
-      nodes {
-        id
-        title
+    const PRODUCT_BY_VARIANT = `
+      query ProductByVariant($variantId: ID!) {
+        productVariant(id: $variantId) {
+          product { id }
+        }
       }
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-    }
-  }
-}
     `;
-
-    const product_query = `
-    query ProductByVariant($variantId: ID!) {
-  productVariant(id: $variantId) {
-    id
-    title
-    product {
-      id
-      title
-    }
-  }
-}
-
-    `;
-
-    const enable_selling_payload = [];
-    const variantIds = [];
 
     for (const productId of resources.productIds) {
-      const { data } = await shopifyInstance({ access_token, shop_url }).post(
+      const { data } = await shopifyInstance({ shop_url, access_token }).post(
         "/graphql.json",
-        {
-          query: variants_query,
-          variables: {
-            productId,
-          },
-        },
+        { query: VARIANTS_QUERY, variables: { productId } },
       );
 
-      if (!data.data.product?.variants) {
-        continue;
-      }
-
-      const obj = {
+      const variants = data.data.product?.variants.nodes || [];
+      enableInventoryPayload.push({
         productId,
-        variants: [] as {
-          id: string;
-          inventoryPolicy: "CONTINUE" | "DENY";
-        }[],
-      };
-      const variants = data.data.product?.variants.nodes;
-
-      for (const variant of variants) {
-        if (!variant) {
-          break;
-        }
-
-        const { id } = variant;
-        variantIds.push(id);
-        obj.variants.push({ id, inventoryPolicy: "DENY" });
-      }
-
-      enable_selling_payload.push(obj);
+        variants: variants.map((v: any) => {
+          variantIds.push(v.id);
+          return { id: v.id, inventoryPolicy: "DENY" };
+        }),
+      });
     }
 
     for (const variantId of resources.variantIds) {
       variantIds.push(variantId);
-      const { data } = await shopifyInstance({ access_token, shop_url }).post(
+
+      const { data } = await shopifyInstance({ shop_url, access_token }).post(
         "/graphql.json",
-        {
-          query: product_query,
-          variables: {
-            variantId,
-          },
-        },
+        { query: PRODUCT_BY_VARIANT, variables: { variantId } },
       );
 
-      if (!data.data?.productVariant?.product) {
-        continue;
-      }
+      const productId = data.data?.productVariant?.product?.id;
+      if (!productId) continue;
 
-      const { id } = data.data.productVariant.product;
-
-      enable_selling_payload.push({
-        productId: id,
-        variants: [
-          {
-            id: variantId,
-            inventoryPolicy: "DENY",
-          },
-        ],
+      enableInventoryPayload.push({
+        productId,
+        variants: [{ id: variantId, inventoryPolicy: "DENY" }],
       });
     }
 
-    for (const payload of enable_selling_payload) {
-      const UPDATE_QUERY = `
+    const INVENTORY_UPDATE = `
       mutation updateVariantsInventoryPolicy(
         $productId: ID!
         $variants: [ProductVariantsBulkInput!]!
@@ -446,124 +370,241 @@ export const createOffer = async (req: Request, res: Response) => {
           productId: $productId
           variants: $variants
         ) {
-          userErrors {
-            field
-            message
-          }
+          userErrors { message }
         }
       }
     `;
 
-      const { data } = await shopifyInstance({ access_token, shop_url }).post(
-        "/graphql.json",
-        {
-          query: UPDATE_QUERY,
-          variables: payload,
-        },
-      );
-
-      if (data?.errors) {
-        console.error(data.errors, payload);
-        continue;
-      }
-
-      // console.log(data);
-    }
-
-    const variables = {
-      input: {
-        name: groupName,
-        merchantCode: groupName,
-        options: ["Purchase option"],
-
-        sellingPlansToCreate: [
-          {
-            name: planName,
-            options: ["Pre-order"],
-            position: 1,
-            category: "PRE_ORDER",
-            description: planDescription,
-
-            billingPolicy: {
-              fixed: _billingPolicy,
-            },
-
-            deliveryPolicy: {
-              fixed: deliveryPolicy,
-            },
-
-            inventoryPolicy: {
-              reserve: "ON_FULFILLMENT",
-            },
-
-            pricingPolicies: [],
-          },
-        ],
-      },
-    };
-
-    const { data } = await shopifyInstance({
-      access_token,
-      shop_url,
-    }).post("/graphql.json", {
-      query: offer_query,
-      variables,
-    });
-
-    if (data.errors || data.data.sellingPlanGroupCreate.userErrors.length) {
-      return res.status(400).json({
-        error: data.errors || data.data.sellingPlanGroupCreate.userErrors,
+    for (const payload of enableInventoryPayload) {
+      await shopifyInstance({ shop_url, access_token }).post("/graphql.json", {
+        query: INVENTORY_UPDATE,
+        variables: payload,
       });
     }
 
-    const sellingPlanGroupId =
-      data.data.sellingPlanGroupCreate.sellingPlanGroup.id;
-
-    const { data: attachResponse } = await shopifyInstance({
-      access_token,
-      shop_url,
-    }).post("/graphql.json", {
-      query: `
-    mutation sellingPlanGroupAddProductVariants(
-      $id: ID!
-      $productVariantIds: [ID!]!
-    ) {
-      sellingPlanGroupAddProductVariants(
-        id: $id
-        productVariantIds: $productVariantIds
-      ) {
-        sellingPlanGroup {
-          id
-        }
-        userErrors {
-          field
-          message
+    const CREATE_GROUP = `
+      mutation CreateGroup($input: SellingPlanGroupInput!) {
+        sellingPlanGroupCreate(input: $input) {
+          sellingPlanGroup {
+            id
+            sellingPlans(first: 1) {
+              edges {
+                node { id }
+              }
+            }
+          }
+          userErrors { message }
         }
       }
-    }
-  `,
+    `;
+
+    const groupRes = await shopifyInstance({ shop_url, access_token }).post(
+      "/graphql.json",
+      {
+        query: CREATE_GROUP,
+        variables: {
+          input: {
+            name: groupName,
+            merchantCode: groupName,
+            options: ["Purchase option"],
+            sellingPlansToCreate: [
+              {
+                name: planName,
+                options: ["Pre-order"],
+                category: "PRE_ORDER",
+                description: planDescription,
+                billingPolicy: { fixed: _billingPolicy },
+                deliveryPolicy: { fixed: deliveryPolicy },
+                inventoryPolicy: { reserve: "ON_FULFILLMENT" },
+                pricingPolicies: [],
+              },
+            ],
+          },
+        },
+      },
+    );
+
+    const shopifyGroupId =
+      groupRes.data.data.sellingPlanGroupCreate.sellingPlanGroup.id;
+
+    const shopifyPlanId =
+      groupRes.data.data.sellingPlanGroupCreate.sellingPlanGroup.sellingPlans
+        .edges[0].node.id;
+
+    await shopifyInstance({ shop_url, access_token }).post("/graphql.json", {
+      query: `
+        mutation attachVariants($id: ID!, $productVariantIds: [ID!]!) {
+          sellingPlanGroupAddProductVariants(
+            id: $id
+            productVariantIds: $productVariantIds
+          ) {
+            userErrors { message }
+          }
+        }
+      `,
       variables: {
-        id: sellingPlanGroupId,
+        id: shopifyGroupId,
         productVariantIds: variantIds,
       },
     });
 
-    const errors =
-      attachResponse.data.sellingPlanGroupAddProductVariants.userErrors;
+    await prisma.$transaction(async (tx) => {
+      const offerGroup = await tx.offerGroup.create({
+        data: {
+          name: groupName,
+          merchant_code: groupName,
+          options: ["Purchase option"],
+        },
+      });
 
-    if (errors.length) {
-      console.error("Failed to attach selling plan:", errors);
-    }
+      await tx.offerPlan.create({
+        data: {
+          shopify_plan_id: shopifyPlanId,
+          groupId: offerGroup.id,
+          name: planName,
+          description: planDescription,
+          billing_policy: _billingPolicy,
+          delivery_policy: deliveryPolicy,
+          inventory_policy: { reserve: "ON_FULFILLMENT" },
+          pricing_policies: [],
+        },
+      });
 
-    console.log(attachResponse);
+      const products = await Promise.all(
+        variantIds.map((variantId) =>
+          tx.preOrderProducts.upsert({
+            where: { variant_id: variantId },
+            update: {
+              shop: shop_url,
+              continue_seling: false,
+            },
+            create: {
+              shop: shop_url,
+              variant_id: variantId,
+              offer_group_id: offerGroup.id,
+              continue_seling: false,
+            },
+          }),
+        ),
+      );
+
+      await tx.preOrderProductOffer.createMany({
+        data: products.map((p) => ({
+          productId: p.id,
+          offerGroupId: offerGroup.id,
+        })),
+        skipDuplicates: true,
+      });
+    });
 
     return res.status(200).json({
-      sellingPlanGroup: data.data.sellingPlanGroupCreate.sellingPlanGroup,
+      success: true,
+      shopifyGroupId,
+      shopifyPlanId,
+      variants: variantIds.length,
     });
   } catch (error: any) {
-    console.error("error creating offer", error);
+    console.error("Create Offer Error:", error);
     return res.status(500).json({
-      error: error?.message || "Something went wrong",
+      error: error?.message || "Internal server error",
+    });
+  }
+};
+export const getPlans = async (req: Request, res: Response) => {
+  try {
+    const shop_url = "bundleapp-tes.myshopify.com";
+
+    const plans = await prisma.offerPlan.findMany({
+      include: {
+        group: {
+          include: {
+            productOffers: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const filteredPlans = plans.filter((plan) =>
+      plan.group?.productOffers?.some((po) => po.product?.shop === shop_url),
+    );
+
+    const response = filteredPlans.map((plan) => ({
+      id: plan.id,
+      shopify_plan_id: plan.shopify_plan_id,
+      name: plan.name,
+      group: {
+        id: plan.group.id,
+        name: plan.group.name,
+        merchant_code: plan.group.merchant_code,
+      },
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: response,
+    });
+  } catch (error: any) {
+    console.error("Fetch Plans Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch plans",
+    });
+  }
+};
+
+export const getVariantsByPlan = async (req: Request, res: Response) => {
+  try {
+    const { planId } = req.params;
+
+    const plan = await prisma.offerPlan.findUnique({
+      where: {
+        shopify_plan_id: planId,
+      },
+      include: {
+        group: {
+          include: {
+            productOffers: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
+    }
+
+    const variants = plan.group.productOffers.map((po) => ({
+      productId: po.product.id,
+      variantId: po.product.variant_id,
+      shop: po.product.shop,
+      continueSelling: po.product.continue_seling,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      plan: {
+        id: plan.id,
+        shopify_plan_id: plan.shopify_plan_id,
+        name: plan.name,
+      },
+      variants,
+    });
+  } catch (error: any) {
+    console.error("Fetch Variants Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Internal server error",
     });
   }
 };

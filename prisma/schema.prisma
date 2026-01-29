@@ -30,31 +30,34 @@ model Subscriptions {
 }
 
 model OfferGroup {
-  id            String      @id @default(uuid())
+  id            String @id @default(uuid()) @db.Uuid
   name          String
   merchant_code String
   options       Json
-  plans         OfferPlan[]
 
-  // 🔹 ADDED (virtual relation)
-  productLinks PreOrderProductOffer[]
+  plans         OfferPlan[]
+  productOffers PreOrderProductOffer[]
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 }
 
 model OfferPlan {
-  id               String     @id @default(uuid())
-  groupId          String
-  group            OfferGroup @relation(fields: [groupId], references: [id])
+  id              String @id @default(uuid()) @db.Uuid
+  shopify_plan_id String @unique
+
+  groupId String     @db.Uuid
+  group   OfferGroup @relation(fields: [groupId], references: [id])
+
   name             String
   description      String
   billing_policy   Json
   delivery_policy  Json
   inventory_policy Json
   pricing_policies Json
-  createdAt        DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime   @updatedAt @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
 }
 
 model PreOrderProducts {
@@ -62,12 +65,10 @@ model PreOrderProducts {
   shop       String
   variant_id String @unique
 
-  // ⚠️ kept as-is (legacy / backward compatibility)
-  offer_group_id String
-
   continue_seling Boolean @default(true)
 
-  // 🔹 ADDED (virtual relation)
+  offer_group_id String? // Added field for offer_group_id, nullable for backward compatibility
+
   offerLinks PreOrderProductOffer[]
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
@@ -75,9 +76,9 @@ model PreOrderProducts {
 }
 
 model PreOrderProductOffer {
-  id           String @id @default(uuid())
-  productId    String
-  offerGroupId String
+  id           String @id @default(uuid()) @db.Uuid
+  productId    String @db.Uuid
+  offerGroupId String @db.Uuid
 
   product    PreOrderProducts @relation(fields: [productId], references: [id])
   offerGroup OfferGroup       @relation(fields: [offerGroupId], references: [id])
@@ -106,4 +107,11 @@ model StoreSettings {
   email              String   @default("")
   createdAt          DateTime @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime @updatedAt @db.Timestamptz(6)
+}
+
+enum OfferStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  DELETED
 }
