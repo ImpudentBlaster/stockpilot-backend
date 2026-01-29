@@ -266,15 +266,12 @@ export const getPreorderProducts = async (req: Request, res: Response) => {
 export const createOffer = async (req: Request, res: Response) => {
   try {
     const parsed = offerSchema.safeParse(req.body);
-    console.log("====================================");
-    console.log("req.body", req.body);
-    console.log("====================================");
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues });
     }
 
     const shop_url = "bundleapp-tes.myshopify.com";
-    const access_token = "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";
+    const access_token = process.env.SHOPIFY_ACCESS_TOKEN!;
 
     const {
       groupName,
