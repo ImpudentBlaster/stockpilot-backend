@@ -265,13 +265,31 @@ export const getPreorderProducts = async (req: Request, res: Response) => {
 
 export const createOffer = async (req: Request, res: Response) => {
   try {
-    const parsed = offerSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.issues });
+
+     const { shop } = req.query;
+
+    if (!shop || typeof shop !== "string") {
+      return res.status(400).json({ error: "Shop domain is required" });
     }
 
-    const shop_url = "bundleapp-tes.myshopify.com";
-    const access_token = process.env.SHOPIFY_ACCESS_TOKEN!;
+    const existingShop = await prisma.stores.findUnique({
+      where: {
+        shop,
+        installed: true,
+      },
+    });
+
+    if (!existingShop) {
+      return res.status(400).json({ error: "No active shop found" });
+    }
+
+    const { access_token, shop: shop_url } = existingShop;
+
+    const parsed = offerSchema.safeParse(req.body);
+    if (!parsed.success) {
+
+      return res.status(400).json({ error: parsed.error.issues });
+    }
 
     const {
       groupName,
@@ -336,7 +354,7 @@ export const createOffer = async (req: Request, res: Response) => {
         productId,
         variants: variants.map((v: any) => {
           variantIds.push(v.id);
-          return { id: v.id, inventoryPolicy: "DENY" };
+          return { id: v.id, inventoryPolicy: "CONTINUE" };
         }),
       });
     }
@@ -354,7 +372,7 @@ export const createOffer = async (req: Request, res: Response) => {
 
       enableInventoryPayload.push({
         productId,
-        variants: [{ id: variantId, inventoryPolicy: "DENY" }],
+        variants: [{ id: variantId, inventoryPolicy: "CONTINUE" }],
       });
     }
 
@@ -507,9 +525,27 @@ export const createOffer = async (req: Request, res: Response) => {
     });
   }
 };
+
 export const getPlans = async (req: Request, res: Response) => {
   try {
-    const shop_url = "bundleapp-tes.myshopify.com";
+    const { shop } = req.query;
+
+    if (!shop || typeof shop !== "string") {
+      return res.status(400).json({ error: "Shop domain is required" });
+    }
+
+    const existingShop = await prisma.stores.findUnique({
+      where: {
+        shop,
+        installed: true,
+      },
+    });
+
+    if (!existingShop) {
+      return res.status(400).json({ error: "No active shop found" });
+    }
+
+    const { access_token, shop: shop_url } = existingShop;
 
     const plans = await prisma.offerPlan.findMany({
       include: {

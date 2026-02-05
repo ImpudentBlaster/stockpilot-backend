@@ -192,3 +192,58 @@ export const fetchProducts = async (req: Request, res: Response) => {
     });
   }
 };
+
+
+
+export const fetchVariantInventoryPolicy = async (req: Request, res: Response) => {
+  const { shop, variantId } = req.query;
+  const variantGid = `gid://shopify/ProductVariant/${variantId}`;
+
+  if (!shop || typeof shop !== "string" || !variantId || typeof variantId !== "string") {
+    return res.status(400).json({ error: "Shop and variantId are required" });
+  }
+  const existingShop = await prisma.stores.findUnique({
+    where: {
+      shop,
+      installed: true,
+    },
+  });
+  if (!existingShop) {
+    return res.status(400).json({ error: "No active shop found" });
+  }
+
+  const { access_token, shop: shop_url } = existingShop;
+  const query = `
+    query getVariantInventoryPolicy($id: ID!) {
+      productVariant(id: $id) {
+        id
+        inventoryPolicy
+        inventoryQuantity
+        inventoryItem {
+          id
+          tracked
+        }
+      }
+    }
+  `;
+  const variables = {
+    id: variantGid,
+  };
+
+  const { data } = await shopifyInstance({
+    access_token,
+    shop_url,
+  }).post("/graphql.json", {
+    query,
+    variables,
+  });
+  if (data?.errors?.length) {
+    return res.status(400).json({ error: data.errors[0]?.message });
+  }
+  return res.status(200).json({
+    variantId,
+    inventoryPolicy: data.data.productVariant.inventoryPolicy,
+    inventoryQuantity: data.data.productVariant.inventoryQuantity,
+    inventoryItem: data.data.productVariant.inventoryItem,
+  });
+};

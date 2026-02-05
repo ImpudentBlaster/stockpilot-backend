@@ -24,8 +24,9 @@ model Subscriptions {
   inventory_item_id String
   notified          Boolean   @default(false)
   notified_at       DateTime? @db.Timestamptz(6)
-  quantity          Int
   title             String
+  product_title     String
+  product_imgurl    String
   createdAt         DateTime  @default(now()) @db.Timestamptz(6)
 }
 
