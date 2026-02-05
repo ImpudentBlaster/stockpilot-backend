@@ -61,7 +61,7 @@ export const create = async (req: Request, res: Response): Promise<any> => {
         variables: {
           id: `gid://shopify/ProductVariant/${String(variantId)}`,
         },
-      }
+      },
     );
 
     if (data.errors) {
@@ -132,12 +132,10 @@ export const notify = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No valid subscribers found" });
     }
 
-    const emails = [];
-
     for (const subscription of subscriptions) {
       const { id, email } = subscription;
-      emails.push(email);
 
+      await sendMail({ email, variant_id: subscriptions[0].variant_id });
       await prisma.subscriptions.update({
         where: {
           id,
@@ -148,7 +146,6 @@ export const notify = async (req: Request, res: Response) => {
         },
       });
     }
-    await sendMail({ emails, variant_id: subscriptions[0].variant_id });
     return res
       .status(200)
       .json({ message: "Users have been notified successfully" });

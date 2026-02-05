@@ -265,8 +265,7 @@ export const getPreorderProducts = async (req: Request, res: Response) => {
 
 export const createOffer = async (req: Request, res: Response) => {
   try {
-
-     const { shop } = req.query;
+    const { shop } = req.query;
 
     if (!shop || typeof shop !== "string") {
       return res.status(400).json({ error: "Shop domain is required" });
@@ -287,7 +286,6 @@ export const createOffer = async (req: Request, res: Response) => {
 
     const parsed = offerSchema.safeParse(req.body);
     if (!parsed.success) {
-
       return res.status(400).json({ error: parsed.error.issues });
     }
 
@@ -623,7 +621,7 @@ export const getVariantsByPlan = async (req: Request, res: Response) => {
       shop: po.product.shop,
       continueSelling: po.product.continue_seling,
     }));
-
+    console.log(variants, plan);
     return res.status(200).json({
       success: true,
       plan: {

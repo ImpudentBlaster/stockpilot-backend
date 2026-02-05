@@ -1,13 +1,13 @@
 import nodemailer from "nodemailer";
 
 export const sendMail = async ({
-  emails,
+  email,
   variant_id,
 }: {
-  emails: string[];
+  email: string;
   variant_id: string;
 }) => {
-  console.log("EMAIL VALUES:", emails, variant_id);
+  console.log("EMAIL VALUES:", email, variant_id);
   console.log("EMAIL CREDS:", process.env.SMTP_HOST);
   console.log("EMAIL CREDS:", process.env.SMTP_PORT);
   console.log("EMAIL CREDS:", process.env.SMTP_USER);
@@ -24,7 +24,7 @@ export const sendMail = async ({
     });
     await transporter.sendMail({
       from: "sagarsharma.techies@gmail.com",
-      to: emails,
+      to: email,
       subject: "Testing nodemailer",
       text: `Test`,
       html: `
@@ -32,7 +32,7 @@ export const sendMail = async ({
       `,
     });
 
-    console.log(`Sent email to: [${emails.join(", ")}]`);
+    console.log(`Sent email to: ${email}`);
   } catch (error: any) {
     console.error("Error sending email:", error);
     throw new Error(`Failed to send email: ${error.message}`);
