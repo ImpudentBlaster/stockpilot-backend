@@ -106,6 +106,12 @@ model StoreSettings {
   waitlistEnabled    Boolean  @default(false)
   preorderEnabled    Boolean  @default(false)
   email              String   @default("")
+  emailSubject       String   @default("{{product_title}} is back in stock!")
+  emailTemplate      String   @default("Hi {{customer_email}},\n\nGreat news! {{product_title}} is back in stock at {{shop_name}}.\n\nVisit: {{product_url}}")
+  buttonText         String   @default("Notify Me When Available")
+  successMessage     String   @default("Thanks! We'll notify you when this product is back in stock.")
+  formHeading        String   @default("Get notified when back in stock")
+  formSubheading     String   @default("Enter your email to be notified when this item is available again")
   createdAt          DateTime @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime @updatedAt @db.Timestamptz(6)
 }
