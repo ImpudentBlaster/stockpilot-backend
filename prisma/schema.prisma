@@ -5,12 +5,14 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider     = "postgresql"
+  relationMode = "prisma"
+  url          = env("DATABASE_URL")
 }
 
 model Subscriptions {
@@ -22,9 +24,69 @@ model Subscriptions {
   inventory_item_id String
   notified          Boolean   @default(false)
   notified_at       DateTime? @db.Timestamptz(6)
-  quantity          Int
   title             String
+  product_title     String
+  product_imgurl    String
   createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+model OfferGroup {
+  id            String @id @default(uuid()) @db.Uuid
+  name          String
+  merchant_code String
+  options       Json
+
+  plans         OfferPlan[]
+  productOffers PreOrderProductOffer[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model OfferPlan {
+  id              String @id @default(uuid()) @db.Uuid
+  shopify_plan_id String @unique
+
+  groupId String     @db.Uuid
+  group   OfferGroup @relation(fields: [groupId], references: [id])
+
+  name             String
+  description      String
+  billing_policy   Json
+  delivery_policy  Json
+  inventory_policy Json
+  pricing_policies Json
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model PreOrderProducts {
+  id         String @id @default(uuid()) @db.Uuid
+  shop       String
+  variant_id String @unique
+
+  continue_seling Boolean @default(true)
+
+  offer_group_id String? // Added field for offer_group_id, nullable for backward compatibility
+
+  offerLinks PreOrderProductOffer[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model PreOrderProductOffer {
+  id           String @id @default(uuid()) @db.Uuid
+  productId    String @db.Uuid
+  offerGroupId String @db.Uuid
+
+  product    PreOrderProducts @relation(fields: [productId], references: [id])
+  offerGroup OfferGroup       @relation(fields: [offerGroupId], references: [id])
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([productId, offerGroupId])
 }
 
 model Stores {
@@ -40,10 +102,23 @@ model Stores {
 model StoreSettings {
   id                 String   @id @default(uuid()) @db.Uuid
   shop               String   @unique
-  backInStockEnabled Boolean  @default(true)
-  waitlistEnabled    Boolean  @default(true)
-  preorderEnabled    Boolean  @default(true)
+  backInStockEnabled Boolean  @default(false)
+  waitlistEnabled    Boolean  @default(false)
+  preorderEnabled    Boolean  @default(false)
   email              String   @default("")
+  emailSubject       String   @default("{{product_title}} is back in stock!")
+  emailTemplate      String   @default("Hi {{customer_email}},\n\nGreat news! {{product_title}} is back in stock at {{shop_name}}.\n\nVisit: {{product_url}}")
+  buttonText         String   @default("Notify Me When Available")
+  successMessage     String   @default("Thanks! We'll notify you when this product is back in stock.")
+  formHeading        String   @default("Get notified when back in stock")
+  formSubheading     String   @default("Enter your email to be notified when this item is available again")
   createdAt          DateTime @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime @updatedAt @db.Timestamptz(6)
+}
+
+enum OfferStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  DELETED
 }

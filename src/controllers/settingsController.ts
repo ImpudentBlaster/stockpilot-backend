@@ -39,34 +39,36 @@ export const updateStoreSettings = async (req: Request, res: Response) => {
 
     const entries = Object.entries(data);
 
-    if (entries.length !== 1) {
-      return res
-        .status(400)
-        .json({ error: "Only one setting can be updated at a time" });
+    if (entries.length === 0) {
+      return res.status(400).json({ error: "No settings provided" });
     }
 
-    const [setting, value] = entries[0];
+    // Validate all settings before updating
+    const updateData: Record<string, any> = {};
+    
+    for (const [setting, value] of entries) {
+      if (!(setting in allowedSettings)) {
+        return res.status(400).json({ error: `Invalid setting: ${setting}` });
+      }
 
-    if (!(setting in allowedSettings)) {
-      return res.status(400).json({ error: `Invalid setting: ${setting}` });
+      type AllowedSettingKey = keyof typeof allowedSettings;
+      const expectedType = allowedSettings[setting as AllowedSettingKey];
+
+      if (typeof value !== expectedType) {
+        return res.status(400).json({
+          error: `Invalid type for ${setting}. Expected ${expectedType}`,
+        });
+      }
+
+      updateData[setting] = value;
     }
 
-    type AllowedSettingKey = keyof typeof allowedSettings;
-    const expectedType = allowedSettings[setting as AllowedSettingKey];
-
-    if (typeof value !== expectedType) {
-      return res.status(400).json({
-        error: `Invalid type for ${setting}. Expected ${expectedType}`,
-      });
-    }
-
+    // Update all validated settings at once
     await prisma.storeSettings.update({
       where: {
         shop,
       },
-      data: {
-        [setting]: value,
-      },
+      data: updateData,
     });
 
     return res.status(200).json({ success: true });

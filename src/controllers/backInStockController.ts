@@ -5,14 +5,10 @@ import { sendMail } from "../utils/sendMail";
 
 export const create = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, variantId, shop, quantity, productId } = req.body;
+    const { email, variantId, shop, productId } = req.body;
 
-    if (!email || !shop || !variantId || !quantity || !productId) {
+    if (!email || !shop || !variantId || !productId) {
       return res.status(400).json({ error: "Missing fields" });
-    }
-
-    if (quantity < 1) {
-      return res.status(400).json({ error: "Quantity can't be less than 1" });
     }
 
     const shopData = await prisma.stores.findUnique({
@@ -43,13 +39,20 @@ export const create = async (req: Request, res: Response): Promise<any> => {
 
     const query = `
     query getInventoryItemId($id: ID!) {
-      productVariant(id: $id) {
-        title
-        inventoryItem {
-          id
-        }
+  productVariant(id: $id) {
+    title
+    inventoryItem {
+      id
+    }
+    product {
+      title
+      featuredImage {
+        url
       }
     }
+  }
+}
+
   `;
     const { data } = await shopifyInstance({ access_token, shop_url }).post(
       "/graphql.json",
@@ -58,7 +61,7 @@ export const create = async (req: Request, res: Response): Promise<any> => {
         variables: {
           id: `gid://shopify/ProductVariant/${String(variantId)}`,
         },
-      }
+      },
     );
 
     if (data.errors) {
@@ -67,7 +70,8 @@ export const create = async (req: Request, res: Response): Promise<any> => {
         error: data.errors[0].message || "Error fetching inventory item id",
       });
     }
-    const { title, inventoryItem } = data.data?.productVariant;
+    const { title, inventoryItem, product } = data.data?.productVariant;
+    const {title: product_title, featuredImage} = product;
     const inventory_item_id = inventoryItem.id || null;
 
     if (!inventory_item_id) {
@@ -79,10 +83,11 @@ export const create = async (req: Request, res: Response): Promise<any> => {
         product_id: String(productId),
         title,
         shop,
-        quantity,
         variant_id: String(variantId),
         inventory_item_id: inventory_item_id.split("/").at(-1),
         email,
+        product_title,
+        product_imgurl: featuredImage?.url || "placeholder"
       },
     });
 
@@ -119,7 +124,6 @@ export const notify = async (req: Request, res: Response) => {
         shop,
         inventory_item_id: String(inventory_item_id),
         notified: false,
-        quantity: { lte: available },
       },
     });
 
@@ -128,12 +132,10 @@ export const notify = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No valid subscribers found" });
     }
 
-    const emails = [];
-
     for (const subscription of subscriptions) {
       const { id, email } = subscription;
-      emails.push(email);
 
+      await sendMail({ email, variant_id: subscriptions[0].variant_id });
       await prisma.subscriptions.update({
         where: {
           id,
@@ -144,7 +146,6 @@ export const notify = async (req: Request, res: Response) => {
         },
       });
     }
-    await sendMail({ emails, variant_id: subscriptions[0].variant_id });
     return res
       .status(200)
       .json({ message: "Users have been notified successfully" });
@@ -300,25 +301,29 @@ export const mostRequestedProducts = async (req: Request, res: Response) => {
     }
 
     const products = await prisma.subscriptions.groupBy({
-      by: ["product_id"],
-      where: {
-        shop,
-      },
+      by: ["product_id", "variant_id", "title", "product_imgurl", "product_title"],
+      where: { shop },
       _count: {
-        product_id: true,
+        variant_id: true,
       },
       orderBy: {
         _count: {
-          product_id: "desc",
+          variant_id: "desc",
         },
       },
       take: 10,
     });
 
-    const data = products.map(({ _count, product_id }) => ({
+    console.log(products)
+
+    const data = products.map(({ product_id, variant_id, title, _count, product_imgurl, product_title }) => ({
       product_id,
-      count: _count.product_id,
+      variant_id,
+      title,
+      count: _count.variant_id,
+      product_imgurl, product_title
     }));
+
     return res.status(200).json({ data });
   } catch (error: any) {
     console.error("Error fetching product data:", error?.message);
